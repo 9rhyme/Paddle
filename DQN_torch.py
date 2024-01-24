@@ -6,6 +6,7 @@ import torch.optim as optim
 from collections import deque
 import matplotlib.pyplot as plt
 from paddle_pygame import Paddle
+from datetime import datetime
 
 env = Paddle()
 np.random.seed(0)
@@ -26,6 +27,7 @@ class DQN(nn.Module):
         return self.fc3(x)
 
 
+
 class Agent:
 
     def __init__(self, state_space, action_space):
@@ -40,6 +42,19 @@ class Agent:
         self.model = DQN(state_space, action_space).to(device)
         self.optimizer = optim.Adam(self.model.parameters())
         self.MSE_loss = nn.MSELoss().to(device)
+        if not env.train_new:
+            try:
+                self.model.load_state_dict(torch.load(env.model_to_use))
+                self.model.eval()
+                print("Loaded model")
+            except FileNotFoundError:
+                print("No saved model found. Creating a new model.")
+
+    def save_model(self , current_datetime):
+
+        model_filename = f'saved_model_{current_datetime}.pth'
+        torch.save(self.model.state_dict(), model_filename)
+        print(f"Model saved to '{model_filename}'")
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
@@ -88,9 +103,10 @@ class Agent:
 
 def train_dqn(episode):
     loss = []
+    accuracy_list = []  # List to store accuracy for each episode
     action_space = 3
     state_space = 5
-    max_steps = 1000
+
     agent = Agent(state_space, action_space)
 
     for e in range(episode):
@@ -107,17 +123,23 @@ def train_dqn(episode):
             state = next_state
             agent.replay()
             score += reward
-
-        print("episode: {}/{}, score: {}".format(e, episode, score))
+        accuracy = env.hit / (env.hit + env.miss) * 100 if (env.hit + env.miss) > 0 else 0
+        accuracy_list.append(accuracy)
+        print("episode: {}/{}, score: {}, accuracy: {:.2f}%".format(e, episode, score, accuracy))
         loss.append(score)
-
-    return loss
+    current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
+    graph_filename = f'graph_{current_datetime}.png'
+    agent.save_model(current_datetime)
+    plt.plot([i for i in range(ep)], accuracy_list)
+    plt.xlabel('episodes')
+    plt.ylabel('accuracy %')
+    plt.title('Training Accuracy Over Episodes')
+    plt.savefig(graph_filename)
+    plt.show()
+    return accuracy_list
 
 
 if __name__ == '__main__':
-    ep = 400
-    loss = train_dqn(ep)
-    plt.plot([i for i in range(ep)], loss)
-    plt.xlabel('episodes')
-    plt.ylabel('reward')
-    plt.show()
+    ep = 40
+    accuracy = train_dqn(ep)
+

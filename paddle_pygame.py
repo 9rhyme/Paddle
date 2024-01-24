@@ -1,7 +1,10 @@
 import pygame
 import sys
 import numpy as np
-from time import sleep
+from pygame.locals import *
+from tkinter import Tk, filedialog
+import os
+
 
 # Constants for the screen size
 SCREEN_WIDTH = 600
@@ -36,6 +39,10 @@ class Paddle():
         self.done = False
         self.reward = 0
         self.hit, self.miss = 0, 0
+        self.train_new = False
+        self.model_to_use = ""
+        # Add a counter for consecutive hits on the paddle
+        self.consecutive_hits = 0
 
         # Set up the display
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -58,7 +65,61 @@ class Paddle():
 
         # Set up the font for the score display
         self.font = pygame.font.Font(None, 36)
+        self.setup_gui()
 
+    def setup_gui(self):
+        # Initialize Pygame
+        pygame.init()
+
+        # Set up the display
+        self.gui_screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.display.set_caption("Game Configuration")
+
+        # Set up font for buttons
+        button_font = pygame.font.Font(None, 36)
+
+        # Set up buttons
+        self.train_button_rect = pygame.Rect(50, 200, 200, 50)
+        self.train_button_text = button_font.render("     Train New ", True, WHITE)
+
+        self.load_button_rect = pygame.Rect(350, 200, 200, 50)
+        self.load_button_text = button_font.render("  Load Existing ", True, WHITE)
+        # Set up the font for the label
+        self.label_font = pygame.font.Font(None, 36)
+        self.label_text = self.label_font.render("Select Model to Use", True, WHITE)
+
+        # Event handling loop for GUI
+        while True:
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == MOUSEBUTTONDOWN:
+                    if self.train_button_rect.collidepoint(pygame.mouse.get_pos()):
+                        self.train_new = True
+                        return
+                    elif self.load_button_rect.collidepoint(pygame.mouse.get_pos()):
+                        self.train_new = False
+                        self.load_existing_model()
+                        return
+
+
+
+            # Draw buttons on the screen
+            self.gui_screen.fill(BLACK)
+            pygame.draw.rect(self.gui_screen, GREEN, self.train_button_rect)
+            pygame.draw.rect(self.gui_screen, BLUE, self.load_button_rect)
+            # Draw the label
+            label_rect = self.label_text.get_rect(center=(SCREEN_WIDTH / 2, 50))
+            self.screen.blit(self.label_text, label_rect)
+            self.gui_screen.blit(self.train_button_text, (60, 210))
+            self.gui_screen.blit(self.load_button_text, (360, 210))
+            pygame.display.flip()
+
+    def load_existing_model(self):
+        Tk().withdraw()  # Prevents Tkinter root window from appearing
+        filename = filedialog.askopenfilename(title="Select Model File", filetypes=[("Model files", "*.pth")])
+        self.model_to_use = os.path.basename(filename)  # Extract only the filename
     def paddle_left(self):
         if self.paddle.left > 0:
             self.paddle.left -= 20
@@ -96,13 +157,29 @@ class Paddle():
             self.ball_dy *= -1
             self.hit += 1
             self.reward += 10
+            self.consecutive_hits += 1
+            # Check if consecutive hits reach the limit
+            if self.consecutive_hits == 3:
+                self.consecutive_hits = 0
+                self.done = True
 
-        # Ball and block collision
+        else:
+
+            # Reset consecutive hits if the ball doesn't hit the paddle
+            self.consecutive_hits = 0
+
+            # Ball and block collision
         for block in self.blocks:
             if self.ball.colliderect(block):
+
                 self.blocks.remove(block)
                 self.ball_dy *= -1
-                self.reward += 1 + 2 * block.y // (BLOCK_HEIGHT + 5)  # Higher rows give slightly more rewards
+                if block.y < BLOCK_HEIGHT + 55:
+                    self.reward += 3
+                else:
+                    self.reward += 1# Higher rows give slightly more rewards
+        if not self.blocks:
+            self.done = True
 
         # Ball misses paddle
         if self.ball.top >= SCREEN_HEIGHT:
