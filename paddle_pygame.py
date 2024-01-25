@@ -51,7 +51,7 @@ class Paddle():
         self.paddle = pygame.Rect(SCREEN_WIDTH / 2, SCREEN_HEIGHT - PADDLE_HEIGHT - 10, PADDLE_WIDTH, PADDLE_HEIGHT)
 
         # Set up the ball
-        self.ball = pygame.Rect(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, BALL_DIAMETER, BALL_DIAMETER)
+        self.ball = pygame.Rect(SCREEN_WIDTH -BALL_DIAMETER, SCREEN_HEIGHT / 2, BALL_DIAMETER, BALL_DIAMETER)
         self.ball_dx = 3
         self.ball_dy = -3
 
@@ -158,20 +158,22 @@ class Paddle():
             self.hit += 1
             self.reward += 10
             self.consecutive_hits += 1
+
             # Check if consecutive hits reach the limit
-            if self.consecutive_hits == 3:
+            if self.consecutive_hits >= 3:
                 self.consecutive_hits = 0
+
                 self.done = True
 
-        else:
 
-            # Reset consecutive hits if the ball doesn't hit the paddle
-            self.consecutive_hits = 0
+
+
+
 
             # Ball and block collision
         for block in self.blocks:
             if self.ball.colliderect(block):
-
+                self.consecutive_hits = 0
                 self.blocks.remove(block)
                 self.ball_dy *= -1
                 if block.y < BLOCK_HEIGHT + 55:

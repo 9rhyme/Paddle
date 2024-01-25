@@ -67,10 +67,8 @@ class Agent:
         return torch.argmax(act_values).item()
 
     def replay(self):
-
         if len(self.memory) < self.batch_size:
             return
-
         minibatch = random.sample(self.memory, self.batch_size)
 
         states = np.array([i[0] for i in minibatch])
@@ -90,7 +88,6 @@ class Agent:
         targets_full = self.model(states)
         targets_pred = targets_full.clone()
         targets_full[np.arange(self.batch_size), actions] = torch.from_numpy(targets).float()
-
         # value_pred = self.model(states)
         loss = self.MSE_loss(targets_pred, targets_full)
         self.optimizer.zero_grad()
@@ -140,6 +137,6 @@ def train_dqn(episode):
 
 
 if __name__ == '__main__':
-    ep = 40
+    ep = 1000
     accuracy = train_dqn(ep)
 
